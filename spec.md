@@ -11,17 +11,23 @@ events (finals, breaks, deadlines), and flags the ones that are close.
 - Urgency has three tiers (see R3).
 - Past events are kept and shown as `PAST` until the user removes them.
 - The interface is subcommands: `add`, `list`, `edit`, `remove`.
+- Later addition (R7, R8): a numbered interactive menu and a visual display
+  (banner, boxed colored table, urgent alert line). The subcommands stay.
 
 ## Interface
 
 ```
+py countdown.py                 # interactive menu (R7)
+py countdown.py menu            # same, explicitly
 py countdown.py add "<name>" <YYYY-MM-DD>
 py countdown.py list
 py countdown.py edit <id> [--name "<new name>"] [--date <YYYY-MM-DD>]
 py countdown.py remove <id>
 ```
 
-Running with no subcommand behaves like `list`.
+Running with no subcommand opens the menu when input comes from a terminal;
+when input is piped (not a terminal) it behaves like `list`, so scripts never
+hang waiting for a choice.
 
 Every event gets a numeric **ID** when it is added. IDs are shown in `list` and
 are used by `edit` and `remove`, so two events can share a name. IDs are never
@@ -94,10 +100,48 @@ Each event gets a status label based on days remaining:
 - A one-line summary is printed under the list, e.g.
   `2 urgent, 1 soon, 4 later, 1 past`.
 
+### R7 — Interactive, user-friendly menu
+
+- The menu screen shows the dashboard (R8), then:
+  `[1] Add event  [2] Edit event  [3] Remove event  [4] Quit`.
+- **Add:** asks for the name, then the date. A bad date shows the error and
+  asks again. Pressing Enter on an empty answer cancels.
+- **Edit:** asks for the event ID (`2` or `#2`), then a new name and new date;
+  Enter keeps the current value, which is shown in the prompt. A bad date asks
+  again.
+- **Remove:** asks for the event ID, then confirms `(y/N)`; anything but `y`
+  cancels.
+- **Quit:** `4`, `q` or `quit`. Ctrl+C or end of input also quits cleanly, with
+  no traceback.
+- After each action the screen is redrawn with a result message: green for
+  success, red for errors. An unknown menu choice shows a hint.
+- The screen is cleared between redraws only when output is a terminal.
+- Changes are saved immediately (R5), so quitting never loses data.
+
+### R8 — Visual display with colors
+
+Used by both the menu and `list`.
+
+- **Banner:** a double-line box with `COUNTDOWN` and today's date written out,
+  e.g. `Wednesday, 18 November 2026`.
+- **Alert line:** if any events are URGENT,
+  `⚠ 2 events in the next 3 days: Quiz (in 2 days), Essay (tomorrow)` in red;
+  otherwise `✓ Nothing urgent in the next 3 days.` in green. Not shown when
+  there are no events.
+- **Table:** drawn with box lines (`┌─┬─┐`). Each row's text is colored by its
+  tier (R3 colors) and the header is bold. Dates show the weekday, e.g.
+  `Thu 2026-12-10`. Columns stay aligned with or without color, including
+  for wide characters such as emoji in names.
+- **Summary line:** under the table, with each count in its tier color.
+- Output is written as UTF-8 so box characters work when redirected to a file.
+
 ## Design
 
 - Language: Python 3 (standard library only; pytest for tests).
-- `countdown.py` — CLI entry point (argparse) and output formatting.
+- `countdown.py` — CLI entry point (argparse).
+- `display.py` — banner, alert line, boxed table, summary, colors (R3, R6, R8).
+- `menu.py` — the interactive menu loop; input is passed in as a function so
+  tests can script it (R7).
 - `events.py` — pure logic (parse date, add/edit/remove, days remaining,
   status label, sort, wording). Functions take `today` as a parameter so
   tests can fix the date.

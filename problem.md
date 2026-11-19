@@ -8,3 +8,7 @@ The student needs constant reminders about the events for example finals coming 
 - R4: Remove or edit an event
 - R5: Keep events saved between sessions
 - R5: Easier for user to read and understand the urgency of upcomin events
+
+## Added Requirements
+- R7: Interactive, user-friendly menu so events can be managed without remembering commands
+- R8: Visual display with colors: title banner, boxed table colored by urgency, and an alert line for urgent events
