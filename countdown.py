@@ -1,6 +1,7 @@
 """Countdown: see how many days are left until your events.
 
 Usage:
+    py countdown.py                  (interactive menu)
     py countdown.py add "<name>" <YYYY-MM-DD>
     py countdown.py list
     py countdown.py edit <id> [--name "<name>"] [--date <YYYY-MM-DD>]
@@ -13,6 +14,7 @@ from datetime import date
 
 import display
 import events
+import menu
 import storage
 
 
@@ -28,6 +30,7 @@ def build_parser():
     a.add_argument("name", help='event name, e.g. "Math final"')
     a.add_argument("date", help="event date as YYYY-MM-DD")
 
+    sub.add_parser("menu", help="open the interactive menu (default)")
     sub.add_parser("list", help="list events, soonest first")
 
     e = sub.add_parser("edit", help="change an event's name and/or date")
@@ -40,12 +43,23 @@ def build_parser():
     return p
 
 
-def main(argv=None, today=None, out=None, err=None):
+def main(argv=None, today=None, out=None, err=None, input_fn=input, interactive=None):
     out = out or sys.stdout
     err = err or sys.stderr
     today = today or date.today()
     args = build_parser().parse_args(argv)
-    command = args.command or "list"
+    if interactive is None:
+        interactive = sys.stdin.isatty()
+    # No subcommand: open the menu from a terminal, but just list when input is
+    # piped so scripts never hang waiting for a choice (R7).
+    command = args.command or ("menu" if interactive else "list")
+    color = display.use_color(args.no_color, out)
+    if color:
+        display.enable_windows_ansi()
+
+    if command == "menu":
+        clear = hasattr(out, "isatty") and out.isatty()
+        return menu.run_menu(today, input_fn=input_fn, out=out, color=color, clear=clear)
 
     try:
         data = storage.load()
@@ -62,9 +76,6 @@ def main(argv=None, today=None, out=None, err=None):
             storage.save(data)
             print(f"Removed #{e['id']}: {e['name']}", file=out)
         else:
-            color = display.use_color(args.no_color, out)
-            if color:
-                display.enable_windows_ansi()
             print(display.dashboard(data["events"], today, color=color), file=out)
     except (events.EventError, storage.StorageError) as ex:
         print(f"Error: {ex}", file=err)

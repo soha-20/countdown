@@ -28,7 +28,7 @@ def row(out, name):
 
 def run(*argv):
     out, err = io.StringIO(), io.StringIO()
-    code = countdown.main(list(argv), today=TODAY, out=out, err=err)
+    code = countdown.main(list(argv), today=TODAY, out=out, err=err, interactive=False)
     return code, out.getvalue(), err.getvalue()
 
 
