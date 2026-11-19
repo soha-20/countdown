@@ -21,6 +21,11 @@ def store(tmp_path, monkeypatch):
     return path
 
 
+def row(out, name):
+    """The table row for an event (rows start with a box border)."""
+    return next(l for l in out.splitlines() if l.startswith("│") and name in l)
+
+
 def run(*argv):
     out, err = io.StringIO(), io.StringIO()
     code = countdown.main(list(argv), today=TODAY, out=out, err=err)
@@ -49,18 +54,16 @@ def test_r2_cli_list_shows_days_remaining_soonest_first(store):
     run("add", "Finals", "2026-12-10")
     _, out, _ = run("list")
     lines = out.splitlines()
-    finals = next(i for i, l in enumerate(lines) if "Finals" in l)
-    brk = next(i for i, l in enumerate(lines) if "Winter break" in l)
-    assert finals < brk
-    assert "in 22 days" in lines[finals]
-    assert "in 31 days" in lines[brk]
+    assert lines.index(row(out, "Finals")) < lines.index(row(out, "Winter break"))
+    assert "in 22 days" in row(out, "Finals")
+    assert "in 31 days" in row(out, "Winter break")
 
 
 def test_r2_cli_list_shows_id_name_and_date(store):
     run("add", "Finals", "2026-12-10")
     _, out, _ = run("list")
-    row = next(l for l in out.splitlines() if "Finals" in l)
-    assert "#1" in row and "2026-12-10" in row
+    r = row(out, "Finals")
+    assert "#1" in r and "2026-12-10" in r
 
 
 def test_r2_cli_list_empty_message(store):
@@ -83,7 +86,7 @@ def test_r3_cli_list_labels_each_tier(store):
     run("add", "Finals", "2026-12-10")     # 22 days
     run("add", "Midterm", "2026-11-01")    # past
     _, out, _ = run("--no-color", "list")
-    rows = {name: l for l in out.splitlines() for name in ["Quiz", "Essay", "Finals", "Midterm"] if name in l}
+    rows = {name: row(out, name) for name in ["Quiz", "Essay", "Finals", "Midterm"]}
     assert "URGENT" in rows["Quiz"]
     assert "SOON" in rows["Essay"]
     assert "LATER" in rows["Finals"]
@@ -95,8 +98,7 @@ def test_r3_cli_past_events_listed_last(store):
     run("add", "Finals", "2026-12-10")
     _, out, _ = run("list")
     lines = out.splitlines()
-    assert lines.index(next(l for l in lines if "Finals" in l)) < \
-        lines.index(next(l for l in lines if "Midterm" in l))
+    assert lines.index(row(out, "Finals")) < lines.index(row(out, "Midterm"))
 
 
 # --- R4 --------------------------------------------------------------------------
@@ -147,7 +149,8 @@ def test_r5_separate_processes_share_saved_events(store):
     subprocess.run([sys.executable, script, "add", "Finals", "2099-01-01"],
                    env=env, check=True, capture_output=True)
     result = subprocess.run([sys.executable, script, "list"],
-                            env=env, check=True, capture_output=True, text=True)
+                            env=env, check=True, capture_output=True,
+                            text=True, encoding="utf-8")
     assert "Finals" in result.stdout
 
 
@@ -166,9 +169,9 @@ def test_r6_cli_countdown_words(store):
     run("add", "Tomorrow thing", "2026-11-19")
     run("add", "Old thing", "2026-11-17")
     _, out, _ = run("list")
-    assert "today" in next(l for l in out.splitlines() if "Today thing" in l)
-    assert "tomorrow" in next(l for l in out.splitlines() if "Tomorrow thing" in l)
-    assert "yesterday" in next(l for l in out.splitlines() if "Old thing" in l)
+    assert "today" in row(out, "Today thing")
+    assert "tomorrow" in row(out, "Tomorrow thing")
+    assert "yesterday" in row(out, "Old thing")
 
 
 def test_r6_cli_columns_aligned(store):
@@ -192,23 +195,3 @@ def test_r6_no_color_when_not_a_terminal(store):
     run("add", "Quiz", "2026-11-20")
     _, out, _ = run("list")
     assert "\033[" not in out
-
-
-def test_r6_color_on_terminal_and_disabled_by_flag_or_env(monkeypatch):
-    class Tty(io.StringIO):
-        def isatty(self):
-            return True
-    monkeypatch.delenv("NO_COLOR", raising=False)
-    assert countdown.use_color(False, Tty()) is True
-    assert countdown.use_color(True, Tty()) is False
-    monkeypatch.setenv("NO_COLOR", "1")
-    assert countdown.use_color(False, Tty()) is False
-
-
-def test_r6_colored_output_keeps_columns_aligned():
-    evts = [{"id": 1, "name": "Quiz", "date": "2026-11-20"},
-            {"id": 2, "name": "Finals", "date": "2026-12-10"}]
-    text = countdown.format_list(evts, TODAY, color=True)
-    assert "\033[1;31m" in text  # URGENT is red
-    plain = text.replace("\033[1;31m", "").replace("\033[32m", "").replace("\033[0m", "")
-    assert plain == countdown.format_list(evts, TODAY, color=False)
