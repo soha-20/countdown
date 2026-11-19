@@ -98,9 +98,9 @@ Each event gets a status label based on days remaining:
 
 - Language: Python 3 (standard library only; pytest for tests).
 - `countdown.py` — CLI entry point (argparse) and output formatting.
-- Logic is split into small pure functions (parse date, days remaining,
-  status label, sort, format) that take `today` as a parameter so tests can fix
-  the date.
+- `events.py` — pure logic (parse date, add/edit/remove, days remaining,
+  status label, sort, wording). Functions take `today` as a parameter so
+  tests can fix the date.
 - `storage.py` — load/save the JSON file.
 - `tests/` — pytest tests; every test name or docstring names the requirement
   ID it checks (e.g. `test_r3_three_days_is_urgent`).
